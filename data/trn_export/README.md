@@ -1,3 +1,2 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d66d712532c75f816de5d514d961abbe1bfa5311bc7ae77d10eaea01ea2a54d8
-size 393
+## Toronto Road Network Export ##
+The following data was exported using the OpenStreetMap dataset through a query of highway features (``motorway``, ``primary``, ``secondary``, and ``teritary``) on the Overpass API. The longitudinal bounds of the data extract are -79.61 to -79.13 from left to right respectively, and the latitudinal bounds are 43.85 to 43.58 from top to bottom respectively.
