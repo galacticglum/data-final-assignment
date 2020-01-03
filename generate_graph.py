@@ -15,7 +15,7 @@ from utils import init_logger, partition
 logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a graph of geodata point count per partition region to the total number of some measurement in the region.')
 parser.add_argument('input', type=str, help='The path to the input geodata.')
-parser.add_argument('y_column', type=str, help='The (case-sensitive) header name of the variable column.')
+parser.add_argument('y_columns', type=str, nargs='+', help='The (case-sensitive) header names of the variable columns.')
 parser.add_argument('--longitude-col', dest='longitude_column', type=str, help='The (case-sensitive) header name of the longitude column.', default='LONGITUDE')
 parser.add_argument('--latitude-col', dest='latitude_column', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
 parser.add_argument('-cw', '--chunk-width', type=int, help='The number of chunks on the longitude (horizontal). Defaults to 32.', default=32)
@@ -95,26 +95,34 @@ df = pd.read_csv(input_path)
 points_geometry = [Point(xy) for xy in zip(df[args.longitude_column], df[args.latitude_column])]
 chunks = partition(points_geometry, args.chunk_width, args.chunk_height)
 
-X, y = [], []
+X, Y = [], {y_column: list() for y_column in args.y_columns}
 for i in range(args.chunk_width):
     for j in range(args.chunk_height):
         X.append(len(chunks[i][j]))
-        total_y = 0
+
+        total_v = {y_column: 0 for y_column in args.y_columns}
         for point in chunks[i][j]:
-            total_y += sum(df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.y_column])
+            columns = df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.y_columns]
+            for column in columns:
+                v = columns[column].dropna()
+                total_v[column] += sum(v)
         
-        y.append(total_y)
+        for column in total_v:
+            Y[column].append(total_v[column])
 
-plt.scatter(X, y)
-
-# Sort the Xs so that matplotlib can properly display them.
 sorted_X = sorted(X)
-trendline, p, rsquared = generate_polynomial_trendline(X, y)
-plt.plot(sorted_X, trendline(sorted_X), label='Linear regression')
-
 logger.setLevel(logging.INFO)
-logger.info('Correlation coefficient (linear): {}'.format(round(p, 3)))
-logger.info('R-squared (linear): {}'.format(round(rsquared, 3)))
+
+for column in Y:
+    y = Y[column]
+    plt.scatter(X, y)
+
+    # Sort the Xs so that matplotlib can properly display them.
+    trendline, p, rsquared = generate_polynomial_trendline(X, y)
+    plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (Linear)'.format(column))
+
+    logger.info('{} - Correlation coefficient (linear): {}'.format(column, round(p, 3)))
+    logger.info('{} - R-squared (linear): {}'.format(column, round(rsquared, 3)))
 
 plt.legend(loc='upper right')
 plt.show()
