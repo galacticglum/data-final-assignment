@@ -7,6 +7,7 @@ import logging
 import argparse
 import numpy as np
 import pandas as pd
+import scipy.optimize
 from pathlib import Path
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
@@ -80,6 +81,12 @@ def correlation_coefficient(X, y, weights=None):
 
     return covariance(X, y, weights) / np.sqrt(covariance(X, X, weights) * covariance(y, y, weights))
 
+def _generate_trendline_metrics(X, y, trendline, weight_func=None):
+    weights = compute_weights(X, y, weight_func)
+    p_value = correlation_coefficient(X, y, weights)
+    r_squared = coefficient_of_determination(X, y, trendline, weight_func)
+    return p_value, r_squared
+
 def generate_polynomial_trendline(X, y, weight_func=None, degree=1):
     '''
     Generate a polynomial fit trendline.
@@ -87,8 +94,18 @@ def generate_polynomial_trendline(X, y, weight_func=None, degree=1):
 
     weights = compute_weights(X, y, weight_func)
     trendline = np.poly1d(np.polyfit(X, y, degree, w=weights))
-    p_value = correlation_coefficient(X, y, weights)
-    r_squared = coefficient_of_determination(X, y, trendline, weight_func)
+    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
+    return trendline, p_value, r_squared
+
+def generate_curve_fit(X, y, f, weight_func=None):
+    '''
+    Generate a trendline for any function.
+    '''
+
+    weights = compute_weights(X, y, weight_func)
+    popt, pcov = scipy.optimize.curve_fit(f, X, y, sigma=weights, absolute_sigma=weight_func is not None)
+    trendline = lambda x: f(x, *popt)
+    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
     return trendline, p_value, r_squared
 
 df = pd.read_csv(input_path)
@@ -98,31 +115,38 @@ chunks = partition(points_geometry, args.chunk_width, args.chunk_height)
 X, Y = [], {y_column: list() for y_column in args.y_columns}
 for i in range(args.chunk_width):
     for j in range(args.chunk_height):
-        X.append(len(chunks[i][j]))
+        x = len(chunks[i][j])
+        if x == 0: continue
 
+        X.append(x)
         total_v = {y_column: 0 for y_column in args.y_columns}
         for point in chunks[i][j]:
             columns = df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.y_columns]
             for column in columns:
-                v = columns[column].dropna()
-                total_v[column] += sum(v)
+                total_v[column] += sum(x if not np.isnan(x) else 0 for x in columns[column])
         
         for column in total_v:
             Y[column].append(total_v[column])
 
+X = np.array(X)
+
 # Sort the Xs so that matplotlib can properly display them.
-sorted_X = sorted(X)
+sorted_X = np.array(sorted(X))
 logger.setLevel(logging.INFO)
 
 for column in Y:
-    y = Y[column]
+    y = np.array(Y[column])
     plt.scatter(X, y)
 
     trendline, p, rsquared = generate_polynomial_trendline(X, y)
-    plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (Linear)'.format(column))
+    plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (linear)'.format(column))
 
-    logger.info('{} - Correlation coefficient (linear): {}'.format(column, round(p, 3)))
+    log_trendline, log_p, log_rsquared = generate_curve_fit(X, y, lambda t, a, b, c: a * np.log(b * t) + c)
+    plt.plot(sorted_X, log_trendline(sorted_X), linestyle='dashed', label='{} (logarithmic)'.format(column))
+
+    logger.info('{} - Correlation coefficient: {}'.format(column, round(p, 3)))
     logger.info('{} - R-squared (linear): {}'.format(column, round(rsquared, 3)))
+    logger.info('{} - R-squared (logarithmic): {}'.format(column, round(log_rsquared, 3)))
 
 plt.legend(loc='upper right')
 plt.show()
