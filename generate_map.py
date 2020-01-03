@@ -7,10 +7,12 @@ import glob
 import argparse
 import pandas as pd
 import geopandas as gpd
+import matplotlib
 import matplotlib.pyplot as plt
+from math import floor
 from pathlib import Path
-from shapely.geometry import Point, Polygon
 from utils import init_logger
+from shapely.geometry import Point, Polygon
 
 logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a map given a set of shapefiles.')
@@ -79,21 +81,50 @@ geometry = [Point(xy) for xy in zip(df['LONGITUDE'], df['LATITUDE'])]
 geo_df = gpd.GeoDataFrame(df, crs={'init': 'WGS84'}, geometry=geometry)
 geo_df.plot(ax=ax, markersize=20, marker='o', label='Red Light Camera', zorder=len(layers) + 1)
 
-NUM_CHUNKS_X, NUM_CHNUNKS_Y = 16, 10
+NUM_CHUNKS_X, NUM_CHUNKS_Y = 16, 10
 min_longitude, max_longitude = min(df['LONGITUDE']), max(df['LONGITUDE'])
 longitude_stepsize = (max_longitude - min_longitude) / NUM_CHUNKS_X
+print(max_longitude, longitude_stepsize)
 for i in range(NUM_CHUNKS_X + 1):
     longitude = min_longitude + longitude_stepsize * i
     plt.axvline(x=longitude, color='grey', linestyle='solid', linewidth=0.5)
 
 min_latitude, max_latitude = min(df['LATITUDE']), max(df['LATITUDE'])
-latitude_stepsize = (max_latitude - min_latitude) / NUM_CHNUNKS_Y
-for i in range(NUM_CHNUNKS_Y + 1):
+latitude_stepsize = (max_latitude - min_latitude) / NUM_CHUNKS_Y
+for i in range(NUM_CHUNKS_Y + 1):
     latitude = min_latitude + latitude_stepsize * i
     plt.axhline(y=latitude, color='grey', linestyle='solid', linewidth=0.5)
+
+# partition the points into chunks
+chunks = [[[] for _ in range(NUM_CHUNKS_Y)] for _ in range(NUM_CHUNKS_X)]
+for i in geometry:
+    row = geo_df[geo_df['geometry'] == i]
+
+    # Handle edge case for when a point lies on the
+    # maximum longitudinal boundary or the minimum 
+    # latitudinal bondary
+    if i.x == max_longitude:
+        chunk_x = NUM_CHUNKS_X - 1
+    else:
+        chunk_x = floor((i.x - min_longitude) / longitude_stepsize)
+
+    if i.y == min_latitude:
+        chunk_y = NUM_CHUNKS_Y - 1
+    else:
+        chunk_y = floor((max_latitude - i.y) / latitude_stepsize)
+
+    chunks[chunk_x][chunk_y].append(row)
+
+for x in range(NUM_CHUNKS_X):
+    for y in range(NUM_CHUNKS_Y):
+        longitude = longitude_stepsize * x + 0.5 * longitude_stepsize + min_longitude
+        latitude = max_latitude - y * latitude_stepsize - 0.5 * latitude_stepsize
+        
+        text = str(len(chunks[x][y]))
+        text_extents = matplotlib.textpath.TextPath((0, 0), text, size=12).get_extents().transformed(ax.transData.inverted())
+        plt.text(longitude - 0.25 * text_extents.width, latitude - 0.25 * text_extents.height, text, size=12)
 
 plt.title(args.title)
 plt.xlabel(args.xlabel)
 plt.ylabel(args.ylabel)
-# plt.grid()
 plt.show()
