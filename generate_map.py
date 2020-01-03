@@ -1,10 +1,19 @@
 import geopandas as gpd
+import matplotlib.pyplot as plt
+from shapely.geometry import Point, Polygon
 
-shapefile = 'instance/TOPO_EDGE_OF_ROAD_WGS84.shp'
+trn_motorway = gpd.read_file('./data/trn_export/trn_motorway.shp')
+trn_primary = gpd.read_file('./data/trn_export/trn_primary.shp')
+trn_secondary = gpd.read_file('./data/trn_export/trn_secondary.shp')
+trn_tertiary = gpd.read_file('./data/trn_export/trn_tertiary.shp')
 
-# Read shapefile using Geopandas
-gdf = gpd.read_file(shapefile)[['ADMIN', 'ADM0_A3', 'geometry']]
+fig, ax = plt.subplots()
+trn_motorway.plot(linewidth=0.6, ax=ax)
+trn_primary.plot(linewidth=0.5, ax=ax)
+trn_secondary.plot(linewidth=0.3, ax=ax)
+trn_tertiary.plot(linewidth=0.26, ax=ax)
 
-# Rename columns.
-gdf.columns = ['country', 'country_code', 'geometry']
-gdf.head()
+plt.title('Toronto Road Network')
+plt.xlabel('Latitude')
+plt.ylabel('Longitude')
+plt.show()
