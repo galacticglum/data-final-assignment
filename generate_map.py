@@ -5,6 +5,7 @@ Generate a map given a set of shapefiles.
 import json
 import glob
 import argparse
+import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -25,13 +26,13 @@ if len(args.inputs) == 0:
     exit(1)
 
 class Layer:
-    def __init__(self, shapefile, linewidth=None, colour=None):
+    def __init__(self, shapefile, linewidth=None, colour=None, **kwargs):
         self.shapefile = shapefile
         self.linewidth = linewidth
         self.colour = colour or args.colour
 
-    def plot(self, ax=None):
-        self.shapefile.plot(linewidth=self.linewidth, color=self.colour, ax=ax)
+    def plot(self, **kwargs):
+        self.shapefile.plot(linewidth=self.linewidth, color=self.colour, **kwargs)
 
 def verify_shapefile_path(filepath):
     filepath = Path(filepath)
@@ -70,8 +71,13 @@ for input_pattern in args.inputs:
             layers.append(Layer(shapefile))
  
 fig, ax = plt.subplots()
-for layer in layers:
-    layer.plot(ax)
+for i in range(len(layers)):
+    layers[i].plot(ax=ax, zorder=i)
+
+df = pd.read_csv('./geodata/red_light_camera_data.csv')
+geometry = [Point(xy) for xy in zip(df['LONGITUDE'], df['LATITUDE'])]
+geo_df = gpd.GeoDataFrame(df, crs={'init': 'WGS84'}, geometry=geometry)
+geo_df.plot(ax=ax, markersize=20, color='red', marker='o', label='Red Light Camera', zorder=len(layers) + 1)
 
 plt.title(args.title)
 plt.xlabel(args.xlabel)
