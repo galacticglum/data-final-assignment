@@ -39,21 +39,52 @@ if len(args.inputs) == 0:
 
 class Layer:
     def __init__(self, shapefile, linewidth=None, colour=None, **kwargs):
+        '''
+        Initialize the map layer.
+        '''
+
         self.shapefile = shapefile
         self.linewidth = linewidth
         self.colour = colour or args.colour
 
     def plot(self, **kwargs):
+        '''
+        Plot the map layer.
+        '''
+
         self.shapefile.plot(linewidth=self.linewidth, color=self.colour, **kwargs)
 
 def verify_shapefile_path(filepath):
+    '''
+    Verifies that the specified path to the shapefile is valid.
+
+    :param filepath:
+        The path to the shapefile.
+    
+    :returns:
+        A boolean indicating whether the path is valid.
+
+    '''
+
     filepath = Path(filepath)
     if not (filepath.exists() or filepath.is_file()):
         logger.warn('The specified shapefile input (\'{}\') is not a file or does not exist! Skipping this shapefile.'.format(str(filepath)))
         return False
 
     return True
+
 def load_layer_description(filepath):
+    '''
+    Loads the layer description JSON file.
+
+    :param filepath:
+        The path to the layer description file.
+
+    :returns:
+        A list of Layer objects.
+    
+    '''
+
     result = []
     filepath = Path(filepath).resolve().absolute()
     with open(filepath, 'r') as file:
@@ -70,23 +101,28 @@ def load_layer_description(filepath):
 
     return result
 
+# Load the shapefiles...
 layers = []
 for input_pattern in args.inputs:
     files = glob.glob(input_pattern, recursive=True)
     for input_path in files:
         filepath = Path(input_path)
+        # Check if the provided file is a layer description.
+        # A layer description file MUST have the JSON extension.
         if filepath.suffix == '.json':
             layers.extend(load_layer_description(filepath))
         else:
             if not verify_shapefile_path(filepath): continue
             shapefile = gpd.read_file(filepath)
             layers.append(Layer(shapefile))
- 
+
+# Plot all the layers
 fig, ax = plt.subplots()
 for i in range(len(layers)):
     z_index = i if args.use_zordering else None
     layers[i].plot(ax=ax, zorder=z_index)
 
+# Plot and partition points
 if args.points_filepath is not None:
     points_filepath = Path(args.points_filepath).resolve().absolute()
     if points_filepath.exists() and points_filepath.is_file():
