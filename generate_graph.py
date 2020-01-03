@@ -3,6 +3,7 @@ Generate a graph of geodata point count per partition region
 to the total number of some measurement in the region.
 '''
 
+import logging
 import argparse
 import numpy as np
 import pandas as pd
@@ -111,8 +112,9 @@ sorted_X = sorted(X)
 trendline, p, rsquared = generate_polynomial_trendline(X, y)
 plt.plot(sorted_X, trendline(sorted_X), label='Linear regression')
 
+logger.setLevel(logging.INFO)
 logger.info('Correlation coefficient (linear): {}'.format(round(p, 3)))
 logger.info('R-squared (linear): {}'.format(round(rsquared, 3)))
 
-plt.show()
 plt.legend(loc='upper right')
+plt.show()
