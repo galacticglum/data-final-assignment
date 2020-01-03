@@ -15,6 +15,7 @@ logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a map given a set of shapefiles.')
 parser.add_argument('inputs', type=str, nargs='+', help='The input shapefiles or layer descriptor files (JSON). Note: a layer descriptor file must have the JSON file extension.')
 parser.add_argument('--title', type=str, help='The title of the graph.')
+parser.add_argument('--colour', type=str, help='The colour of the plot.')
 parser.add_argument('--xlabel', type=str, help='The label on the x-axis.', default='Latitude')
 parser.add_argument('--ylabel', type=str, help='The label on the y-axis.', default='Longitude')
 args = parser.parse_args()
@@ -24,12 +25,13 @@ if len(args.inputs) == 0:
     exit(1)
 
 class Layer:
-    def __init__(self, shapefile, linewidth=None):
+    def __init__(self, shapefile, linewidth=None, colour=None):
         self.shapefile = shapefile
         self.linewidth = linewidth
+        self.colour = colour or args.colour
 
     def plot(self, ax=None):
-        self.shapefile.plot(linewidth=self.linewidth, ax=ax)
+        self.shapefile.plot(linewidth=self.linewidth, color=self.colour, ax=ax)
 
 def verify_shapefile_path(filepath):
     filepath = Path(filepath)
@@ -49,8 +51,9 @@ def load_layer_description(filepath):
             if not verify_shapefile_path(shapefile_path): continue
             shapefile = gpd.read_file(shapefile_path)
             linewidth = layer.get('linewidth', None)
+            colour = layer.get('colour', None)
 
-            result.append(Layer(shapefile, linewidth))
+            result.append(Layer(shapefile, linewidth, colour))
 
     return result
 
@@ -65,7 +68,7 @@ for input_pattern in args.inputs:
             if not verify_shapefile_path(filepath): continue
             shapefile = gpd.read_file(filepath)
             layers.append(Layer(shapefile))
-
+ 
 fig, ax = plt.subplots()
 for layer in layers:
     layer.plot(ax)
