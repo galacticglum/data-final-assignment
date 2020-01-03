@@ -110,6 +110,7 @@ for i in range(args.chunk_width):
         for column in total_v:
             Y[column].append(total_v[column])
 
+# Sort the Xs so that matplotlib can properly display them.
 sorted_X = sorted(X)
 logger.setLevel(logging.INFO)
 
@@ -117,7 +118,6 @@ for column in Y:
     y = Y[column]
     plt.scatter(X, y)
 
-    # Sort the Xs so that matplotlib can properly display them.
     trendline, p, rsquared = generate_polynomial_trendline(X, y)
     plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (Linear)'.format(column))
 
