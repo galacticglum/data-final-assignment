@@ -10,8 +10,8 @@ import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
 from pathlib import Path
+from shapely.geometry import Point
 from utils import init_logger, partition
-from shapely.geometry import Point, Polygon
 
 logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a map given a set of shapefiles.')
@@ -19,8 +19,8 @@ parser.add_argument('inputs', type=str, nargs='+', help='The input shapefiles or
                                                         'Note: a layer descriptor file must have the JSON file extension.')
 parser.add_argument('--points', dest='points_filepath', type=str, help='The path to the CSV file containing the geodata of points on a map.')
 parser.add_argument('--points-label', type=str, help='The label of the geodata points.')
-parser.add_argument('--longitude-col', type=str, help='The (case-sensitive) header name of the longitude column.', default='LONGITUDE')
-parser.add_argument('--latitude-col', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
+parser.add_argument('--longitude-col', dest='longitude_column', type=str, help='The (case-sensitive) header name of the longitude column.', default='LONGITUDE')
+parser.add_argument('--latitude-col', dest='latitude_column', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
 parser.add_argument('--crs', type=str, help='The coordinate reference system of the geodata.', default='WGS84')
 parser.add_argument('--disable-zordering', dest='use_zordering', help='Order the layers in ascending order (order: map layers and then point layer).', action='store_false')
 parser.add_argument('--title', type=str, help='The title of the graph.')
@@ -127,7 +127,7 @@ if args.points_filepath is not None:
     points_filepath = Path(args.points_filepath).resolve().absolute()
     if points_filepath.exists() and points_filepath.is_file():
         df = pd.read_csv(points_filepath)
-        points_geometry = [Point(xy) for xy in zip(df[args.longitude_col], df[args.latitude_col])]
+        points_geometry = [Point(xy) for xy in zip(df[args.longitude_column], df[args.latitude_column])]
         points_geo_df = gpd.GeoDataFrame(df, crs={'init': args.crs}, geometry=points_geometry)
         
         z_index = len(layers) + 1 if args.use_zordering else None
@@ -135,13 +135,13 @@ if args.points_filepath is not None:
 
         if args.partition_map:
             # Draw partition grid lines
-            min_longitude, max_longitude = min(df[args.longitude_col]), max(df[args.longitude_col])
+            min_longitude, max_longitude = min(df[args.longitude_column]), max(df[args.longitude_column])
             longitude_stepsize = (max_longitude - min_longitude) / args.chunk_width
             for i in range(args.chunk_width + 1):
                 longitude = min_longitude + longitude_stepsize * i
                 plt.axvline(x=longitude, color='grey', linestyle='solid', linewidth=0.5)
 
-            min_latitude, max_latitude = min(df[args.latitude_col]), max(df[args.latitude_col])
+            min_latitude, max_latitude = min(df[args.latitude_column]), max(df[args.latitude_column])
             latitude_stepsize = (max_latitude - min_latitude) / args.chunk_height
             for i in range(args.chunk_height + 1):
                 latitude = min_latitude + latitude_stepsize * i
