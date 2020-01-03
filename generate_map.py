@@ -2,10 +2,10 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from shapely.geometry import Point, Polygon
 
-trn_motorway = gpd.read_file('./data/trn_export/trn_motorway.shp')
-trn_primary = gpd.read_file('./data/trn_export/trn_primary.shp')
-trn_secondary = gpd.read_file('./data/trn_export/trn_secondary.shp')
-trn_tertiary = gpd.read_file('./data/trn_export/trn_tertiary.shp')
+trn_motorway = gpd.read_file('./geodata/trn_export/trn_motorway.shp')
+trn_primary = gpd.read_file('./geodata/trn_export/trn_primary.shp')
+trn_secondary = gpd.read_file('./geodata/trn_export/trn_secondary.shp')
+trn_tertiary = gpd.read_file('./geodata/trn_export/trn_tertiary.shp')
 
 fig, ax = plt.subplots()
 trn_motorway.plot(linewidth=0.6, ax=ax)
