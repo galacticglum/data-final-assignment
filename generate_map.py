@@ -77,9 +77,23 @@ for i in range(len(layers)):
 df = pd.read_csv('./geodata/red_light_camera_data.csv')
 geometry = [Point(xy) for xy in zip(df['LONGITUDE'], df['LATITUDE'])]
 geo_df = gpd.GeoDataFrame(df, crs={'init': 'WGS84'}, geometry=geometry)
-geo_df.plot(ax=ax, markersize=20, color='red', marker='o', label='Red Light Camera', zorder=len(layers) + 1)
+geo_df.plot(ax=ax, markersize=20, marker='o', label='Red Light Camera', zorder=len(layers) + 1)
+
+NUM_CHUNKS_X, NUM_CHNUNKS_Y = 16, 10
+min_longitude, max_longitude = min(df['LONGITUDE']), max(df['LONGITUDE'])
+longitude_stepsize = (max_longitude - min_longitude) / NUM_CHUNKS_X
+for i in range(NUM_CHUNKS_X + 1):
+    longitude = min_longitude + longitude_stepsize * i
+    plt.axvline(x=longitude, color='grey', linestyle='solid', linewidth=0.5)
+
+min_latitude, max_latitude = min(df['LATITUDE']), max(df['LATITUDE'])
+latitude_stepsize = (max_latitude - min_latitude) / NUM_CHNUNKS_Y
+for i in range(NUM_CHNUNKS_Y + 1):
+    latitude = min_latitude + latitude_stepsize * i
+    plt.axhline(y=latitude, color='grey', linestyle='solid', linewidth=0.5)
 
 plt.title(args.title)
 plt.xlabel(args.xlabel)
 plt.ylabel(args.ylabel)
+# plt.grid()
 plt.show()
