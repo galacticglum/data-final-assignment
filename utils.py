@@ -1,6 +1,7 @@
 import copy
 import logging
 import colorama
+from math import floor
 
 def colourize_string(string, colour):
     return '{color_begin}{string}{color_end}'.format(
@@ -56,3 +57,33 @@ def init_logger():
     initialize_logger_format(logger)
 
     return logger
+
+def partition(points, chunk_width, chunk_height):
+    '''
+    Partition a list of points into chunks.
+    '''
+
+    min_longitude, max_longitude = min(points, key=lambda i: i.x).x, max(points, key=lambda i: i.x).x
+    longitude_stepsize = (max_longitude - min_longitude) / chunk_width
+
+    min_latitude, max_latitude = min(points, key=lambda i: i.y).y, max(points, key=lambda i: i.y).y
+    latitude_stepsize = (max_latitude - min_latitude) / chunk_height
+
+    chunks = [[[] for _ in range(chunk_height)] for _ in range(chunk_width)]
+    for point in points:
+        # Handle edge case for when a point lies on the
+        # maximum longitudinal boundary or the minimum 
+        # latitudinal bondary
+        if point.x == max_longitude:
+            chunk_x = chunk_width - 1
+        else:
+            chunk_x = floor((point.x - min_longitude) / longitude_stepsize)
+
+        if point.y == min_latitude:
+            chunk_y = chunk_height - 1
+        else:
+            chunk_y = floor((max_latitude - point.y) / latitude_stepsize)
+
+        chunks[chunk_x][chunk_y].append(point)
+
+    return chunks

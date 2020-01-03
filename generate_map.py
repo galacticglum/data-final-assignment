@@ -9,9 +9,8 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
-from math import floor
 from pathlib import Path
-from utils import init_logger
+from utils import init_logger, partition
 from shapely.geometry import Point, Polygon
 
 logger = init_logger()
@@ -87,7 +86,7 @@ fig, ax = plt.subplots()
 for i in range(len(layers)):
     z_index = i if args.use_zordering else None
     layers[i].plot(ax=ax, zorder=z_index)
-    
+
 if args.points_filepath is not None:
     points_filepath = Path(args.points_filepath).resolve().absolute()
     if points_filepath.exists() and points_filepath.is_file():
@@ -99,6 +98,7 @@ if args.points_filepath is not None:
         points_geo_df.plot(ax=ax, markersize=20, marker='o', label=args.points_label, zorder=z_index)
 
         if args.partition_map:
+            # Draw partition grid lines
             min_longitude, max_longitude = min(df[args.longitude_col]), max(df[args.longitude_col])
             longitude_stepsize = (max_longitude - min_longitude) / args.chunk_width
             for i in range(args.chunk_width + 1):
@@ -111,26 +111,7 @@ if args.points_filepath is not None:
                 latitude = min_latitude + latitude_stepsize * i
                 plt.axhline(y=latitude, color='grey', linestyle='solid', linewidth=0.5)
 
-            # partition the points into chunks
-            chunks = [[[] for _ in range(args.chunk_height)] for _ in range(args.chunk_width)]
-            for point in points_geometry:
-                row = points_geo_df[points_geo_df['geometry'] == point]
-
-                # Handle edge case for when a point lies on the
-                # maximum longitudinal boundary or the minimum 
-                # latitudinal bondary
-                if point.x == max_longitude:
-                    chunk_x = args.chunk_width - 1
-                else:
-                    chunk_x = floor((point.x - min_longitude) / longitude_stepsize)
-
-                if point.y == min_latitude:
-                    chunk_y = args.chunk_height - 1
-                else:
-                    chunk_y = floor((max_latitude - point.y) / latitude_stepsize)
-
-                chunks[chunk_x][chunk_y].append(row)
-
+            chunks = partition(points_geometry, args.chunk_width, args.chunk_height)
             for x in range(args.chunk_width):
                 for y in range(args.chunk_height):
                     longitude = longitude_stepsize * x + 0.5 * longitude_stepsize + min_longitude
