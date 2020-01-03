@@ -16,7 +16,8 @@ from shapely.geometry import Point, Polygon
 
 logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a map given a set of shapefiles.')
-parser.add_argument('inputs', type=str, nargs='+', help='The input shapefiles or layer descriptor files (JSON). Note: a layer descriptor file must have the JSON file extension.')
+parser.add_argument('inputs', type=str, nargs='+', help='The input shapefiles or layer descriptor files (JSON). ' +
+                                                        'Note: a layer descriptor file must have the JSON file extension.')
 parser.add_argument('--title', type=str, help='The title of the graph.')
 parser.add_argument('--colour', type=str, help='The colour of the plot.')
 parser.add_argument('--xlabel', type=str, help='The label on the x-axis.', default='Latitude')
