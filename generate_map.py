@@ -21,6 +21,7 @@ parser.add_argument('--points', dest='points_filepath', type=str, help='The path
 parser.add_argument('--points-label', type=str, help='The label of the geodata points.')
 parser.add_argument('--longitude-col', dest='longitude_column', type=str, help='The (case-sensitive) header name of the longitude column.', default='LONGITUDE')
 parser.add_argument('--latitude-col', dest='latitude_column', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
+parser.add_argument('--count-adjustment-col', dest='count_adjustment_column', type=str, help='The (case-sensitive) header name of the count adjustement column')
 parser.add_argument('--crs', type=str, help='The coordinate reference system of the geodata.', default='WGS84')
 parser.add_argument('--disable-zordering', dest='use_zordering', help='Order the layers in ascending order (order: map layers and then point layer).', action='store_false')
 parser.add_argument('--title', type=str, help='The title of the graph.')
@@ -153,7 +154,13 @@ if args.points_filepath is not None:
                     longitude = longitude_stepsize * x + 0.5 * longitude_stepsize + min_longitude
                     latitude = max_latitude - y * latitude_stepsize - 0.5 * latitude_stepsize
                     
-                    text = str(len(chunks[x][y]))
+                    count = len(chunks[x][y])
+                    if args.count_adjustment_column is not None:
+                        for point in chunks[x][y]:
+                            adjustement_columns = df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.count_adjustment_column]
+                            count += sum(adjustement_columns)
+
+                    text = str(count)
                     text_extents = matplotlib.textpath.TextPath((0, 0), text, size=12).get_extents().transformed(ax.transData.inverted())
                     plt.text(longitude - 0.25 * text_extents.width, latitude - 0.25 * text_extents.height, text, size=12)
 

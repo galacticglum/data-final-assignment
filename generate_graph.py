@@ -21,6 +21,7 @@ parser.add_argument('input', type=str, help='The path to the input geodata.')
 parser.add_argument('y_columns', type=str, nargs='+', help='The (case-sensitive) header names of the variable columns.')
 parser.add_argument('--longitude-col', dest='longitude_column', type=str, help='The (case-sensitive) header name of the longitude column.', default='LONGITUDE')
 parser.add_argument('--latitude-col', dest='latitude_column', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
+parser.add_argument('--count-adjustment-col', dest='count_adjustment_column', type=str, help='The (case-sensitive) header name of the count adjustement column')
 parser.add_argument('-cw', '--chunk-width', type=int, help='The number of chunks on the longitude (horizontal). Defaults to 32.', default=32)
 parser.add_argument('-ch', '--chunk-height', type=int, help='The number of chunks on the latitude (vertical). Defaults to 32.', default=32)
 parser.add_argument('--no-plot-lin-reg', dest='plot_linreg', action='store_false', help='Disables a linear regression.')
@@ -134,14 +135,18 @@ for i in range(args.chunk_width):
     for j in range(args.chunk_height):
         x = len(chunks[i][j])
         if x == 0: continue
-
-        X.append(x)
+        
         total_v = {y_column: 0 for y_column in args.y_columns}
         for point in chunks[i][j]:
+            if args.count_adjustment_column is not None:
+                adjustement_columns = df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.count_adjustment_column]
+                x += sum(adjustement_columns)
+
             columns = df[(df[args.longitude_column] == point.x) & (df[args.latitude_column] == point.y)][args.y_columns]
             for column in columns:
-                total_v[column] += sum(x if not np.isnan(x) else 0 for x in columns[column])
-        
+                total_v[column] += sum(v if not np.isnan(v) else 0 for v in columns[column])
+                
+        X.append(x)
         for column in total_v:
             Y[column].append(total_v[column])
 
