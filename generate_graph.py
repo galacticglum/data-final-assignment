@@ -7,11 +7,12 @@ import logging
 import argparse
 import numpy as np
 import pandas as pd
+import scipy.spatial
 import scipy.optimize
 from pathlib import Path
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
-from utils import init_logger, partition
+from utils import init_logger, partition, get_geo_stepsizes
 
 logger = init_logger()
 parser = argparse.ArgumentParser(description='Generate a graph of geodata point count per partition region to the total number of some measurement in the region.')
@@ -21,6 +22,9 @@ parser.add_argument('--longitude-col', dest='longitude_column', type=str, help='
 parser.add_argument('--latitude-col', dest='latitude_column', type=str, help='The (case-sensitive) header name of the latitude column.', default='LATITUDE')
 parser.add_argument('-cw', '--chunk-width', type=int, help='The number of chunks on the longitude (horizontal). Defaults to 32.', default=32)
 parser.add_argument('-ch', '--chunk-height', type=int, help='The number of chunks on the latitude (vertical). Defaults to 32.', default=32)
+parser.add_argument('--no-plot-lin-reg', dest='plot_linreg', action='store_false', help='Disables a linear regression.')
+parser.add_argument('--plot-log-reg', dest='plot_logreg', action='store_true', help='Enables a logarithmic regression.')
+parser.set_defaults(plot_linreg=True, plot_logreg=False)
 args = parser.parse_args()
 
 input_path = Path(args.input)
@@ -97,13 +101,13 @@ def generate_polynomial_trendline(X, y, weight_func=None, degree=1):
     p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
     return trendline, p_value, r_squared
 
-def generate_curve_fit(X, y, f, weight_func=None):
+def generate_curve_fit(X, y, f, weight_func=None, **kwargs):
     '''
     Generate a trendline for any function.
     '''
 
     weights = compute_weights(X, y, weight_func)
-    popt, pcov = scipy.optimize.curve_fit(f, X, y, sigma=weights, absolute_sigma=weight_func is not None)
+    popt, pcov = scipy.optimize.curve_fit(f, X, y, sigma=weights, absolute_sigma=weight_func is not None, **kwargs)
     trendline = lambda x: f(x, *popt)
     p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
     return trendline, p_value, r_squared
@@ -135,18 +139,42 @@ sorted_X = np.array(sorted(X))
 logger.setLevel(logging.INFO)
 
 for column in Y:
-    y = np.array(Y[column])
+    y = Y[column] = np.array(Y[column])
     plt.scatter(X, y)
 
-    trendline, p, rsquared = generate_polynomial_trendline(X, y)
-    plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (linear)'.format(column))
+    if args.plot_linreg:
+        trendline, p, rsquared = generate_polynomial_trendline(X, y)
+        plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label='{} (linear)'.format(column))
+        logger.info('{} - R-squared (linear): {}'.format(column, round(rsquared, 3)))
 
-    log_trendline, log_p, log_rsquared = generate_curve_fit(X, y, lambda t, a, b, c: a * np.log(b * t) + c)
-    plt.plot(sorted_X, log_trendline(sorted_X), linestyle='dashed', label='{} (logarithmic)'.format(column))
+    if args.plot_logreg:
+        log_trendline, log_p, log_rsquared = generate_curve_fit(X, y, lambda t, a, b, c: a * np.log(b * t) + c)
+        plt.plot(sorted_X, log_trendline(sorted_X), linestyle='dashed', label='{} (logarithmic)'.format(column))
+        logger.info('{} - R-squared (logarithmic): {}'.format(column, round(log_rsquared, 3)))
 
-    logger.info('{} - Correlation coefficient: {}'.format(column, round(p, 3)))
-    logger.info('{} - R-squared (linear): {}'.format(column, round(rsquared, 3)))
-    logger.info('{} - R-squared (logarithmic): {}'.format(column, round(log_rsquared, 3)))
+    logger.info('{} - Correlation coefficient: {}'.format(column, round(p, 3)))    
+
+# longitude_stepsize, latitude_stepsize = get_geo_stepsizes(points_geometry, args.chunk_width, args.chunk_height)
+# chunk_area = longitude_stepsize * latitude_stepsize
+# chunk_perimeter = 2 * (longitude_stepsize + latitude_stepsize)
+
+# X_density = []
+# for i in range(args.chunk_width):
+#     for j in range(args.chunk_height):
+#         points = [(p.x, p.y) for p in chunks[i][j]]
+#         if len(points) == 0: continue
+
+#         unique_length = len(set(points))
+#         if unique_length == 1:
+#             density = 0
+#         elif unique_length == 2:
+#             p1, p2 = points[0], points[1]
+#             density = 1 - ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5 / chunk_perimeter
+#         else:
+#             hull = scipy.spatial.ConvexHull(points)
+#             density = 1 - hull.volume / chunk_area
+        
+#         X_density.append(density)
 
 plt.legend(loc='upper right')
 plt.show()

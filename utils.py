@@ -58,9 +58,12 @@ def init_logger():
 
     return logger
 
-def partition(points, chunk_width, chunk_height):
+def get_geo_stepsizes(points, chunk_width, chunk_height):
     '''
-    Partition a list of points into chunks.
+    Get longitude and latitude stepsizes.
+
+    :returns:
+        The longitude and latitude stepsize respectively.
     '''
 
     min_longitude, max_longitude = min(points, key=lambda i: i.x).x, max(points, key=lambda i: i.x).x
@@ -69,6 +72,17 @@ def partition(points, chunk_width, chunk_height):
     min_latitude, max_latitude = min(points, key=lambda i: i.y).y, max(points, key=lambda i: i.y).y
     latitude_stepsize = (max_latitude - min_latitude) / chunk_height
 
+    return longitude_stepsize, latitude_stepsize
+
+def partition(points, chunk_width, chunk_height):
+    '''
+    Partition a list of points into chunks.
+    '''
+
+    min_longitude, max_longitude = min(points, key=lambda i: i.x).x, max(points, key=lambda i: i.x).x
+    min_latitude, max_latitude = min(points, key=lambda i: i.y).y, max(points, key=lambda i: i.y).y
+    longitude_stepsize, latitude_stepsize = get_geo_stepsizes(points, chunk_width, chunk_height)
+    
     chunks = [[[] for _ in range(chunk_height)] for _ in range(chunk_width)]
     for point in points:
         # Handle edge case for when a point lies on the
