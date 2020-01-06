@@ -46,7 +46,10 @@ for index, row in charges_df.iterrows():
 new_df = new_df.assign(**volume_data)
 
 # Rename
-new_df['Date'] = new_df['DATE']
-new_df['8 Peak Hr Vehicle Volume'] = new_df['VEHICLE_VOLUME']
-new_df['8 Peak Hr Pedestrian Volume'] = new_df['PEDESTRIAN_VOLUME']
+new_df = new_df.rename(columns={
+    'DATE': 'Date', 
+    'VEHICLE_VOLUME': '8 Peak Hr Vehicle Volume', 
+    'PEDESTRIAN_VOLUME': '8 Peak Hr Pedestrian Volume'
+})
+
 new_df.to_csv('geodata/intersection_data.csv', index=False)
