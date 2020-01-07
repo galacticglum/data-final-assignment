@@ -5,12 +5,35 @@ Maps the automobile crash data to the intersection data.
 import pandas as pd
 
 intersection_df = pd.read_csv('geodata/intersection_data.csv')
-crash_df = pd.read_csv('geodata/automobile_crash_data.csv')
+crash_df = pd.read_csv('geodata/KSI.csv')
 
 # Clean the data
 def clean_street_name(x):
-    # Remove apostrophes from names
+    # Normalize naming
+    x = x.lower()
     x = x.replace('\'', ' ')
+    x = x.replace('Stre', 'St')
+    x = x.replace('Street', 'St')
+    x = x.replace('St.', 'St')
+    x = x.replace('Road', 'Rd')
+    x = x.replace('Rd.', 'Rd')
+    x = x.replace('Aven', 'Ave')
+    x = x.replace('Avenue', 'Ave')
+    x = x.replace('Ave.', 'Ave')
+    x = x.replace('Driv', 'Dr')
+    x = x.replace('Drive', 'Dr')
+    x = x.replace('Dr.', 'Dr')
+    x = x.replace('Cres', 'Crt')
+    x = x.replace('Crescent', 'Crt')
+    x = x.replace('Crt.', 'Crt')
+    x = x.replace('BOULEVARD', 'Blvd')
+    x = x.replace('Blvd.', 'Blvd')
+
+    # Normalize directional suffixes
+    x = x.replace('N', '')
+    x = x.replace('E', '')
+    x = x.replace('S', '')
+    x = x.replace('W', '')
 
     # Special cases
     if 'HIGHWAY 27' in x:
