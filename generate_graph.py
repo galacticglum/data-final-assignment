@@ -38,7 +38,9 @@ parser.add_argument('--export-output', type=str, help='The path to the exported 
 parser.add_argument('--export-dpi', type=int, help='The DPI of the exported file.', default=400)
 parser.add_argument('--export-format', type=str, help='The format of the exported file.', default='png')
 parser.add_argument('--no-preview', dest='preview', help='Disable the graph preview window.', action='store_false')
-parser.set_defaults(export=False, preview=True, plot_linreg=True, plot_logreg=False)
+parser.add_argument('--export-csv', dest='export_csv', action='store_true', help='Output the data to a CSV.')
+parser.add_argument('--csv-directory', help='The CSV output directory.', default='.')
+parser.set_defaults(export=False, preview=True, plot_linreg=True, plot_logreg=False, export_csv=False)
 args = parser.parse_args()
 
 input_path = Path(args.input)
@@ -156,8 +158,19 @@ X = np.array(X)
 sorted_X = np.array(sorted(X))
 logger.setLevel(logging.INFO)
 
+csv_directory = Path(args.csv_directory)
+if csv_directory.is_file():
+    csv_directory = csv_directory.parent()
+
+if args.export_csv:
+    csv_directory.mkdir(parents=True, exist_ok=True)
+
 for column in Y:
     y = Y[column] = np.array(Y[column])
+    if args.export_csv:
+        csv_output_directory = csv_directory / '{}_{}_processed.csv'.format(input_path.stem, column)
+        pd.DataFrame({args.x_label: X, args.y_label: y}).to_csv(csv_output_directory, index=False)
+
     plt.scatter(X, y, label=args.scatter_label)
 
     plot_label_template = '{} {{}}'.format(args.plot_label).strip()
