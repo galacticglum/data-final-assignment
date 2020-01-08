@@ -48,30 +48,16 @@ if not (input_path.is_file() or input_path.exists()):
     logger.error('The specified input is not a file or does not exist!')
     exit(1)
 
-def compute_weights(X, y, weight_func=None):
-    '''
-    Compute the weights from a set of data and a weight function.
-    '''
-
-    weights = None
-    if weight_func is not None:
-        weights = np.array([weight_func(X[i], y[i]) for i in range(len(X))])
-
-    return weights
-
-def coefficient_of_determination(X, y, trendline, weight_func=None):
+def coefficient_of_determination(X, y, trendline, weights=None):
     '''
     Calculate the coefficient of determination (R-squared value).
     '''
 
-    if weight_func is not None:
-        weights = compute_weights(X, y, weight_func)
-    else:
+    if weights is None:
         # All points are equally weighted
         weights = [1] * len(X)
 
     y_regression = trendline(X)  
-
     mean = np.average(y, weights=weights)
 
     # Calculate the total sum of squares (tss) and
@@ -101,31 +87,28 @@ def correlation_coefficient(X, y, weights=None):
 
     return covariance(X, y, weights) / np.sqrt(covariance(X, X, weights) * covariance(y, y, weights))
 
-def _generate_trendline_metrics(X, y, trendline, weight_func=None):
-    weights = compute_weights(X, y, weight_func)
+def _generate_trendline_metrics(X, y, trendline, weights=None):
     p_value = correlation_coefficient(X, y, weights)
-    r_squared = coefficient_of_determination(X, y, trendline, weight_func)
+    r_squared = coefficient_of_determination(X, y, trendline, weights)
     return p_value, r_squared
 
-def generate_polynomial_trendline(X, y, weight_func=None, degree=1):
+def generate_polynomial_trendline(X, y, weights=None, degree=1):
     '''
     Generate a polynomial fit trendline.
     '''
 
-    weights = compute_weights(X, y, weight_func)
     trendline = np.poly1d(np.polyfit(X, y, degree, w=weights))
-    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
+    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weights)
     return trendline, p_value, r_squared
 
-def generate_curve_fit(X, y, f, weight_func=None, **kwargs):
+def generate_curve_fit(X, y, f, weights=None, **kwargs):
     '''
     Generate a trendline for any function.
     '''
 
-    weights = compute_weights(X, y, weight_func)
-    popt, pcov = scipy.optimize.curve_fit(f, X, y, sigma=weights, absolute_sigma=weight_func is not None, **kwargs)
+    popt, pcov = scipy.optimize.curve_fit(f, X, y, sigma=weights, absolute_sigma=weights is not None, **kwargs)
     trendline = lambda x: f(x, *popt)
-    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weight_func)
+    p_value, r_squared = _generate_trendline_metrics(X, y, trendline, weights)
     return trendline, p_value, r_squared
 
 df = pd.read_csv(input_path)
@@ -165,6 +148,29 @@ if csv_directory.is_file():
 if args.export_csv:
     csv_directory.mkdir(parents=True, exist_ok=True)
 
+longitude_stepsize, latitude_stepsize = get_geo_stepsizes(points_geometry, args.chunk_width, args.chunk_height)
+chunk_area = longitude_stepsize * latitude_stepsize
+chunk_perimeter = 2 * (longitude_stepsize + latitude_stepsize)
+
+X_density = []
+for i in range(args.chunk_width):
+    for j in range(args.chunk_height):
+        points = [(p.x, p.y) for p in chunks[i][j]]
+        if len(points) == 0: continue
+
+        unique_length = len(set(points))
+        if unique_length == 1:
+            density = 0
+        elif unique_length == 2:
+            p1, p2 = points[0], points[1]
+            density = 1 - ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5 / chunk_perimeter
+        else:
+            hull = scipy.spatial.ConvexHull(points)
+            density = 1 - hull.volume / chunk_area
+        
+        X_density.append(density)
+
+X_density = np.array(X_density)
 for column in Y:
     y = Y[column] = np.array(Y[column])
     if args.export_csv:
@@ -175,38 +181,21 @@ for column in Y:
 
     plot_label_template = '{} {{}}'.format(args.plot_label).strip()
     if args.plot_linreg:
-        trendline, p, rsquared = generate_polynomial_trendline(X, y)
-        plt.plot(sorted_X, trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} (linear)'.format(column)))
-        logger.info(plot_label_template.format('{} - R-squared (linear): {}'.format(column, round(rsquared, 3))))
+        unweighted_trendline, unweighted_p, unweighted_rsquared = generate_polynomial_trendline(X, y)
+        plt.plot(sorted_X, unweighted_trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} Unweighted (linear)'.format(column)))
+        logger.info(plot_label_template.format('{} - Unweighted R-squared (linear): {}'.format(column, round(unweighted_rsquared, 3))))
+
+        weighted_trendline, weighted_p, weighted_rsquared = generate_polynomial_trendline(X, y, 1 / X_density**2)
+        plt.plot(sorted_X, weighted_trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} Weighted (linear)'.format(column)))
+        logger.info(plot_label_template.format('{} - Weighted R-squared (linear): {}'.format(column, round(weighted_rsquared, 3))))
+      
+        logger.info(plot_label_template.format('{} - Unweighted Correlation coefficient (linear): {}'.format(column, round(unweighted_p, 3))))    
+        logger.info(plot_label_template.format('{} - Weighted Correlation coefficient (linear): {}'.format(column, round(weighted_p, 3))))   
 
     if args.plot_logreg:
         log_trendline, log_p, log_rsquared = generate_curve_fit(X, y, lambda t, a, b, c: a * np.log(b * t) + c)
         plt.plot(sorted_X, log_trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} (logarithmic)'.format(column)))
-        logger.info(plot_label_template.format('{} - R-squared (logarithmic): {}'.format(column, round(log_rsquared, 3))))
-
-    logger.info(plot_label_template.format('{} - Correlation coefficient: {}'.format(column, round(p, 3))))    
-
-# longitude_stepsize, latitude_stepsize = get_geo_stepsizes(points_geometry, args.chunk_width, args.chunk_height)
-# chunk_area = longitude_stepsize * latitude_stepsize
-# chunk_perimeter = 2 * (longitude_stepsize + latitude_stepsize)
-
-# X_density = []
-# for i in range(args.chunk_width):
-#     for j in range(args.chunk_height):
-#         points = [(p.x, p.y) for p in chunks[i][j]]
-#         if len(points) == 0: continue
-
-#         unique_length = len(set(points))
-#         if unique_length == 1:
-#             density = 0
-#         elif unique_length == 2:
-#             p1, p2 = points[0], points[1]
-#             density = 1 - ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5 / chunk_perimeter
-#         else:
-#             hull = scipy.spatial.ConvexHull(points)
-#             density = 1 - hull.volume / chunk_area
-        
-#         X_density.append(density)
+        logger.info(plot_label_template.format('{} - R-squared (logarithmic): {}'.format(column, round(log_rsquared, 3)))) 
 
 matplotlib.style.use(args.matplotlib_style)
 plt.title(args.title)
