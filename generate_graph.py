@@ -12,6 +12,8 @@ import scipy.optimize
 from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
+from sympy import expand
+from sympy.abc import x as x_symbol
 from shapely.geometry import Point
 from utils import init_logger, partition, get_geo_stepsizes
 
@@ -185,10 +187,16 @@ for column in Y:
         plt.plot(sorted_X, unweighted_trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} Unweighted (linear)'.format(column)))
         logger.info(plot_label_template.format('{} - Unweighted R-squared (linear): {}'.format(column, round(unweighted_rsquared, 3))))
 
+        unweighted_trendline_str = str(expand(unweighted_trendline(x_symbol)))
+        logger.info(plot_label_template.format('{} - Unweighted Trendline (linear): y = {}'.format(column, unweighted_trendline_str)))
+
         weighted_trendline, weighted_p, weighted_rsquared = generate_polynomial_trendline(X, y, 1 / X_density**2)
         plt.plot(sorted_X, weighted_trendline(sorted_X), linestyle='dashed', label=plot_label_template.format('{} Weighted (linear)'.format(column)))
         logger.info(plot_label_template.format('{} - Weighted R-squared (linear): {}'.format(column, round(weighted_rsquared, 3))))
       
+        weighted_trendline_str = str(expand(weighted_trendline(x_symbol)))
+        logger.info(plot_label_template.format('{} - Weighted Trendline (linear): y = {}'.format(column, weighted_trendline_str)))
+
         logger.info(plot_label_template.format('{} - Unweighted Correlation coefficient (linear): {}'.format(column, round(unweighted_p, 3))))    
         logger.info(plot_label_template.format('{} - Weighted Correlation coefficient (linear): {}'.format(column, round(weighted_p, 3))))   
 
